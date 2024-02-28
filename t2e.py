@@ -76,23 +76,13 @@ def export_book(text, text_path, image_path):
     
     style = '''
     @charset "UTF-8";
-    body {
-        line-height: 1.6;
-        margin: 0;
-        padding: 5%; 
-        text-align: left;
-        hyphens: auto;
-    }
-    h2 {
-        margin: 2rem 0 1rem 0;
-        padding: 0;
-        text-align: left;
+    h1 {
+        color: #907908;
+        margin-top: 2em;
+        text-align: center; 
     }
     p {
-        margin: 1em 0;
-        text-indent: 2em;
-        orphans: 1;
-        widows: 1;
+       text-indent: 2em; 
     }
     '''
     stylesheet = epub.EpubItem(uid = "style_nav", file_name = "style/nav.css", media_type = "text/css", content = style)
@@ -110,7 +100,7 @@ def export_book(text, text_path, image_path):
         content = '</p><p>'.join(lines[1:])
         
         chapter = epub.EpubHtml(title = title, file_name = file_name, lang = language)
-        chapter.content = f'<h2>{title}</h2><p>{content}</p>'
+        chapter.content = f'<h1>{title}</h1><p>{content}</p>'
         chapter.add_item(stylesheet)
         
         chapters.append(chapter)
