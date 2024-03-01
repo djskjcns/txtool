@@ -35,22 +35,19 @@ def process_input():
 def cleanse_text(text_path):
     try:
         cleansed_lines = []
+        TITLE_REFEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+(卷|章))'
 
         with open(text_path, 'r', encoding='utf-8') as file:
             for line in file:
                 stripped_line = line.strip()
                 if stripped_line:
-                    cleansed_lines.append(stripped_line.lstrip())
+                    cleansed_lines.append(stripped_line)
         text = '\n'.join(cleansed_lines)
     except IOError as e:
         print(f"Error: Open {text_path} failed: {e}.")
         sys.exit(1)
-    
-    VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
-    CHAPTER_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+章)'
 
-    text = re.sub(f'(?m){VOLUME_REGEX}', r'\n\1', text)
-    text = re.sub(f'(?m){CHAPTER_REGEX}', r'\n\1', text)
+    text = re.sub(f'(?m){TITLE_REFEX}', r'\n\1', text)
 
     return text
 
@@ -62,9 +59,9 @@ def export_book(text, text_path, image_path):
         print(f"Error: Open {image_path} failed: {e}.")
         sys.exit(1)
     
-    identifier = input("Enter the book's identifier (e.g., id123456): ") or 'id123456'
-    language = input("Enter the book's language: (e.g., zh-CN): ") or 'zh-CN'
     author = input("Enter the author's name (e.g., anonymous): ") or 'anonymous'
+    language = input("Enter the book's language (e.g., zh-CN): ") or 'zh-CN'
+    identifier = input("Enter the book's identifier (e.g., id123456): ") or 'id123456'
 
     cover_ext = os.path.splitext(os.path.basename(image_path))[1]
     text_name = os.path.splitext(os.path.basename(text_path))[0]
@@ -99,11 +96,19 @@ def export_book(text, text_path, image_path):
         text-align: justify;
     }
     '''
-    stylesheet = epub.EpubItem(uid = "style_nav", file_name = "style/nav.css", media_type = "text/css", content = style)
-    book.add_item(stylesheet)
+
+    nav_css = epub.EpubItem(
+        uid = "style_nav",
+        file_name = "style/nav.css",
+        media_type = "text/css",
+        content = style
+    )
+    book.add_item(nav_css)
 
     chapters = []
+    book.toc = []
     chapters_text = text.split('\n\n')
+    VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
 
     for i, chapter_text in enumerate(chapters_text, start = 1):
         lines = chapter_text.split('\n')
@@ -112,19 +117,15 @@ def export_book(text, text_path, image_path):
         content = '</p><p>'.join(lines[1:])
         
         chapter = epub.EpubHtml(title = title, file_name = file_name, lang = language)
-        
-        VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
         if re.search(VOLUME_REGEX, title):
             chapter.content = f'<h1>{title}</h1><p>{content}</p>'
         else:
             chapter.content = f'<h2>{title}</h2><p>{content}</p>'
 
-        chapter.add_item(stylesheet)
-        
+        chapter.add_item(nav_css)
         chapters.append(chapter)
         book.add_item(chapter)
-
-    book.toc = tuple([epub.Link(chapter.file_name, chapter.title, f"chapter{i}") for i, chapter in enumerate(chapters, start = 1)])
+        book.toc.append(epub.Link(file_name, title, f'chapter{i}'))
      
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
