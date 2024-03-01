@@ -46,9 +46,12 @@ def cleanse_text(text_path):
         print(f"Error: Open {text_path} failed: {e}.")
         sys.exit(1)
     
+    VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
     CHAPTER_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+章)'
 
+    text = re.sub(f'(?m){VOLUME_REGEX}', r'\n\1', text)
     text = re.sub(f'(?m){CHAPTER_REGEX}', r'\n\1', text)
+
     return text
 
 def export_book(text, text_path, image_path):
@@ -77,12 +80,23 @@ def export_book(text, text_path, image_path):
     style = '''
     @charset "UTF-8";
     h1 {
-        color: #907908;
-        margin-top: 2em;
-        text-align: center; 
+        text-align: center;
+        margin-top: 1em;
+        margin-bottom: 1em;
     }
+
+    h2 {
+        text-align: center; 
+        margin-top: 1em;
+        margin-bottom: 1em;
+    }
+
     p {
-       text-indent: 2em; 
+        text-indent: 2em; 
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+        line-height: 1.5em;
+        text-align: justify;
     }
     '''
     stylesheet = epub.EpubItem(uid = "style_nav", file_name = "style/nav.css", media_type = "text/css", content = style)
@@ -93,14 +107,18 @@ def export_book(text, text_path, image_path):
 
     for i, chapter_text in enumerate(chapters_text, start = 1):
         lines = chapter_text.split('\n')
-        if len(lines) <= 1:
-            continue
         file_name = f'chap_{i:02d}.xhtml'
         title = lines[0]
         content = '</p><p>'.join(lines[1:])
         
         chapter = epub.EpubHtml(title = title, file_name = file_name, lang = language)
-        chapter.content = f'<h1>{title}</h1><p>{content}</p>'
+        
+        VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
+        if re.search(VOLUME_REGEX, title):
+            chapter.content = f'<h1>{title}</h1><p>{content}</p>'
+        else:
+            chapter.content = f'<h2>{title}</h2><p>{content}</p>'
+
         chapter.add_item(stylesheet)
         
         chapters.append(chapter)
