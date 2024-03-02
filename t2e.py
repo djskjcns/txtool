@@ -32,26 +32,29 @@ def process_input():
   
     return text_path, image_path
 
-def cleanse_text(text_path):
-    try:
-        cleansed_lines = []
-        TITLE_REFEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+(卷|章))'
+def create_chapter(title, file_name, language, content, nav_css):
+    chapter = epub.EpubHtml(
+        title = title,
+        file_name = file_name,
+        lang = language
+    )
+    chapter.content = f'<h2>{title}</h2><p>{content}</p>'
+    chapter.add_item(nav_css)
+    
+    return chapter  
 
-        with open(text_path, 'r', encoding='utf-8') as file:
-            for line in file:
-                stripped_line = line.strip()
-                if stripped_line:
-                    cleansed_lines.append(stripped_line)
-        text = '\n'.join(cleansed_lines)
-    except IOError as e:
-        print(f"Error: Open {text_path} failed: {e}.")
-        sys.exit(1)
+def create_volume(title, file_name, language, nav_css):
+    volume = epub.EpubHtml(
+        title = title,
+        file_name = file_name,
+        lang = language
+    )
+    volume.content = f'<h1>{title}</h1>'
+    volume.add_item(nav_css)
+    
+    return volume
 
-    text = re.sub(f'(?m){TITLE_REFEX}', r'\n\1', text)
-
-    return text
-
-def export_book(text, text_path, image_path):
+def export_book(text_path, image_path):
     try:
         with open(image_path, 'rb') as img_file:
             cover_image = img_file.read()
@@ -104,28 +107,71 @@ def export_book(text, text_path, image_path):
         content = style
     )
     book.add_item(nav_css)
-
-    chapters = []
+  
     book.toc = []
-    chapters_text = text.split('\n\n')
+    chapters = []
+    collect_content = []
+    chapter_title = ''
+    chapter_number = 1
+
     VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
+    CHAPTER_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+章)'
+    
+    with open(text_path, 'r', encoding = 'utf-8') as file:
+        for line in file:
+            stripped_line = line.strip()
+            if not stripped_line:
+                continue
+            if re.search(VOLUME_REGEX, stripped_line):
+                if collect_content:
+                    title = chapter_title if chapter_title else collect_content[0]
+                    file_name = f'chap_{chapter_number:02d}.xhtml'
+                    content = '</p><p>'.join(collect_content[1:])
+                    
+                    chapter = create_chapter(title, file_name, language, content, nav_css)
+                    chapters.append(chapter)
+                    book.add_item(chapter)
+                    book.toc.append(epub.Link(file_name, title, f'chapter{chapter_number}'))
+                    
+                    chapter_number += 1
+                    collect_content = []
+                
+                title = stripped_line
+                file_name = f'chap_{chapter_number:02d}.xhtml'
+                    
+                volume = create_volume(title, file_name, language, nav_css)
+                chapters.append(volume)
+                book.add_item(volume)
+                book.toc.append(epub.Link(file_name, title, f'chapter{chapter_number}'))
+                
+                chapter_number += 1                   
+            elif re.search(CHAPTER_REGEX, stripped_line):
+                if collect_content:
+                    title = chapter_title if chapter_title else collect_content[0]
+                    file_name = f'chap_{chapter_number:02d}.xhtml'
+                    content = '</p><p>'.join(collect_content[1:])
+                    
+                    chapter = create_chapter(title, file_name, language, content, nav_css)
+                    chapters.append(chapter)
+                    book.add_item(chapter)
+                    book.toc.append(epub.Link(file_name, title, f'chapter{chapter_number}'))
+                    
+                    chapter_number += 1
+                    collect_content = []
+                else:
+                    chapter_title = stripped_line
+                chapter_title = stripped_line
+            else:
+                collect_content.append(stripped_line)
 
-    for i, chapter_text in enumerate(chapters_text, start = 1):
-        lines = chapter_text.split('\n')
-        file_name = f'chap_{i:02d}.xhtml'
-        title = lines[0]
-        content = '</p><p>'.join(lines[1:])
+        title = chapter_title if chapter_title else collect_content[0]
+        file_name = f'chap_{chapter_number:02d}.xhtml'
+        content = '</p><p>'.join(collect_content[1:])
         
-        chapter = epub.EpubHtml(title = title, file_name = file_name, lang = language)
-        if re.search(VOLUME_REGEX, title):
-            chapter.content = f'<h1>{title}</h1><p>{content}</p>'
-        else:
-            chapter.content = f'<h2>{title}</h2><p>{content}</p>'
-
-        chapter.add_item(nav_css)
+        chapter = create_chapter(title, file_name, language, content, nav_css)
         chapters.append(chapter)
         book.add_item(chapter)
-        book.toc.append(epub.Link(file_name, title, f'chapter{i}'))
+        book.toc.append(epub.Link(file_name, title, f'chapter{chapter_number}'))
      
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
@@ -142,8 +188,7 @@ def export_book(text, text_path, image_path):
     
 def main():
     text_path, image_path = process_input()
-    text = cleanse_text(text_path)
-    export_book(text, text_path, image_path)
+    export_book(text_path, image_path)
 
 if __name__ == '__main__':
     main()
