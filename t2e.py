@@ -5,20 +5,20 @@ from ebooklib import epub
 
 VOLUME_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+卷)'
 CHAPTER_REGEX = r'(第[\u4e00-\u9fa5零一二三四五六七八九十百千万0-9]+章)'
-CSS_STYLE = """ 
+CSS_STYLE = """
 @charset "UTF-8";
-h1, 
+h1,
 h2 {
-    text-align: center; 
-    margin: 1em 0; 
-    text-indent: 0; 
+    text-align: center;
+    margin: 1em 0;
+    text-indent: 0;
 }
-p { 
-    text-indent: 2em; 
-    margin: 0.5em 0; 
-    line-height: 1.5em; 
-    text-align: justify; 
-} 
+p {
+    text-indent: 2em;
+    margin: 0.5em 0;
+    line-height: 1.5em;
+    text-align: justify;
+}
 """
 
 def process_input():
@@ -66,14 +66,14 @@ def create_book_structure(metadata, image_path):
         sys.exit(1)
 
     cover_ext = os.path.splitext(image_path)[1]
-    
+
     book = epub.EpubBook()
 
     book.set_identifier(metadata['identifier'])
     book.set_title(metadata['title'])
     book.set_language(metadata['language'])
     book.set_cover(file_name = f'cover{cover_ext}', content = cover_image)
-    
+
     book.add_author(metadata['name'])
 
     return book
@@ -82,13 +82,13 @@ def create_chapter(content_lists, metadata, book, nav_css, is_volume = False):
     title = metadata['title']
     number = metadata['number']
     language = metadata['language']
-    
+
     if title:
         content = '</p><p>'.join(content_lists[:])
     else:
         title = content_lists[0]
         content = '</p><p>'.join(content_lists[1:])
-    
+
     if is_volume:
         content = f'<h1>{title}</h1>'
     else:
@@ -97,18 +97,18 @@ def create_chapter(content_lists, metadata, book, nav_css, is_volume = False):
     file_name = f'chapter{number:02d}.xhtml'
 
     chapter = epub.EpubHtml(
-        title = title, 
-        file_name = file_name, 
+        title = title,
+        file_name = file_name,
         lang = language,
         content = content,
         uid = f'chapter{number}'
     )
-    
+
     chapter.add_item(nav_css)
     book.toc.append(epub.Link(file_name, title, f'chapter{number}'))
     book.spine.append(chapter)
     book.add_item(chapter)
-    
+
     return number + 1, book
 
 def add_chapters_to_book(book, text_path, language):
@@ -118,18 +118,18 @@ def add_chapters_to_book(book, text_path, language):
     except IOError as e:
         print(f"Error: Failed to open a text file: {e}")
         sys.exit(1)
-    
+
     nav_css = epub.EpubItem(
-        uid = "style_nav", 
-        file_name = "style/nav.css", 
-        media_type = "text/css", 
+        uid = "style_nav",
+        file_name = "style/nav.css",
+        media_type = "text/css",
         content = CSS_STYLE.encode('utf-8')
     )
 
     collect_content = []
     chapter_metadata = {'title': '', 'number': 1}
     chapter_metadata['language'] = language
-    
+
     book.toc = []
     book.spine = ['nav']
 
@@ -139,18 +139,18 @@ def add_chapters_to_book(book, text_path, language):
 
         if re.search(VOLUME_REGEX, stripped_line):
             if collect_content:
-                chapter_metadata['number'], book = create_chapter(collect_content, 
-                                                   chapter_metadata, book, nav_css, 
-                                                   is_volume = False)  
+                chapter_metadata['number'], book = create_chapter(collect_content,
+                                                   chapter_metadata, book, nav_css,
+                                                   is_volume = False)
                 collect_content.clear()
             chapter_metadata['title'] = stripped_line
-            chapter_metadata['number'], book = create_chapter(collect_content, 
-                                               chapter_metadata, book, nav_css, 
+            chapter_metadata['number'], book = create_chapter(collect_content,
+                                               chapter_metadata, book, nav_css,
                                                is_volume = True)
         elif re.search(CHAPTER_REGEX, stripped_line):
             if collect_content:
-                chapter_metadata['number'], book = create_chapter(collect_content, 
-                                                   chapter_metadata, book, nav_css, 
+                chapter_metadata['number'], book = create_chapter(collect_content,
+                                                   chapter_metadata, book, nav_css,
                                                    is_volume = False)
                 collect_content.clear()
             chapter_metadata['title'] = stripped_line
@@ -158,7 +158,7 @@ def add_chapters_to_book(book, text_path, language):
             collect_content.append(stripped_line)
 
     # Add the last chapter or volume
-    chapter_metadata['number'], book = create_chapter(collect_content, chapter_metadata, 
+    chapter_metadata['number'], book = create_chapter(collect_content, chapter_metadata,
                                                       book, nav_css, is_volume = False)
     book.add_item(nav_css)
     book.add_item(epub.EpubNcx())
