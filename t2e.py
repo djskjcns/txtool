@@ -3,7 +3,8 @@ import os
 import sys
 from ebooklib import epub
 
-CHAPTER_REGEX = r'(^第[零一二三四五六七八九十百千万0-9]+[章部卷] )'
+CHAPTER_REGEX = r'(^第[零一二三四五六七八九十百千万0-9]+[章] )'
+VOLUME_REGEX = r'(^第[零一二三四五六七八九十百千万0-9]+[部卷] )'
 CSS_STYLE = """
 @charset "UTF-8";
 h1,
@@ -46,27 +47,32 @@ def t2e(text_file, image_file):
             text_lines = file.readlines()
         print("The file was read successfully using the GB18030 encoding.")
     
-    chapter_title = None
     book.toc = []
     book.spine = []
-    collect_content = []
+    chapter = {'title': None, 'content': []}
+    volume = {'title' : None, 'toc': []}
     
-    for i, line in enumerate(text_lines, start = 1):
+    for i, line in enumerate(text_lines, start=1):
         stripped_line = line.strip()
         
         if not stripped_line:
             continue
 
-        if re.search(CHAPTER_REGEX, stripped_line):
-            # if collect_content:
-            book = handle_chapter(chapter_title, i, collect_content, book, nav_css)
-            collect_content = []
-            chapter_title = stripped_line
+        if re.search(VOLUME_REGEX, stripped_line):
+            if chapter['content']:
+                book = handle_chapter(chapter, volume, i, book, nav_css)
+                chapter['content'] = []
+            volume = {'title': stripped_line, 'toc': []}
+            book = handle_volume(volume, i, book, nav_css)
+        elif re.search(CHAPTER_REGEX, stripped_line):
+            if chapter['content']:
+                book = handle_chapter(chapter, volume, i, book, nav_css)
+            chapter = {'title': stripped_line, 'content': []}
         else:
-            collect_content.append(stripped_line)
+            chapter['content'].append(stripped_line)
 
     # Add the last chapter
-    book = handle_chapter(chapter_title, i, collect_content, book, nav_css)
+    book = handle_chapter(chapter, volume, i, book, nav_css)
 
     book.add_item(nav_css)
     book.add_item(epub.EpubNcx())
@@ -74,22 +80,37 @@ def t2e(text_file, image_file):
     
     return book
 
-def handle_chapter(chapter_title, number, content, book, nav_css):
-    if chapter_title:
-        content = '</p><p>'.join(content[:])
+def handle_chapter(chapter, volume, number, book, nav_css):
+    if chapter['title']:
+        chapter['content'] = '</p><p>'.join(chapter['content'][:])
     else:
-        chapter_title = content[0]
-        content = '</p><p>'.join(content[1:])
+        chapter['title'] = chapter['content'][0]
+        chapter['content'] = '</p><p>'.join(chapter['content'][1:])
     file_name = f'chapter{number:02d}.xhtml'
     
-    chapter = epub.EpubHtml(title=chapter_title, file_name=file_name, lang='zh', uid=f'chapter{number}')
-    chapter.content = f'<h2>{chapter_title}</h2><p>{content}</p>'
-    chapter.add_item(nav_css)
+    c = epub.EpubHtml(title=chapter['title'], file_name=file_name, lang='zh', uid=f'chapter{number}')
+    c.content = f'<h2>{chapter['title']}</h2><p>{chapter['content']}</p>'
+    c.add_item(nav_css)
+    if volume['title']:
+        volume['toc'].append(epub.Link(file_name, chapter['title'], f'chapter{number}'))
+    else:
+        book.toc.append(epub.Link(file_name, chapter['title'], f'chapter{number}'))
+    book.spine.append(c)
+    book.add_item(c)
     
-    book.toc.append(epub.Link(file_name, chapter_title, f'chapter{number}'))
-    book.spine.append(chapter)
-    book.add_item(chapter)
+    return book
     
+def handle_volume(volume, number, book, nav_css):
+    file_name = f'volume_{number:02d}.xhtml'
+    
+    v = epub.EpubHtml(title=volume['title'], file_name=file_name, lang='zh', uid=f'volume{number}')
+    v.content = f'<h1>{volume['title']}</h1>'
+    v.add_item(nav_css)
+
+    book.toc.append((epub.Section(volume['title'], file_name), volume['toc']))
+    book.spine.append(v)
+    book.add_item(v)
+
     return book
 
 def main():
