@@ -28,16 +28,19 @@ def t2e(text_file, image_file):
     
     # Create epub book
     book = epub.EpubBook()
-    
     book.set_language('zh')
     book.set_cover(file_name=image_file, content=cover_image)
     book.set_title(os.path.basename(text_file).replace('.txt', ''))
 
     # Create CSS style
-    nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=CSS_STYLE)
+    nav_css = epub.EpubItem(
+        uid='style_nav',
+        file_name='style/nav.css',
+        media_type='text/css',
+        content=CSS_STYLE
+    )
     
     # Handle text file
-    # Chinese novels commonly used coding format gb18030
     try:
         with open(text_file, 'r', encoding='utf-8') as file:
             text_lines = file.readlines()
@@ -50,7 +53,7 @@ def t2e(text_file, image_file):
     book.toc = []
     book.spine = []
     chapter = {'title': None, 'content': []}
-    volume = {'title' : None, 'toc': []}
+    volume = {'title': None, 'toc': []}
     
     for i, line in enumerate(text_lines, start=1):
         stripped_line = line.strip()
@@ -86,25 +89,36 @@ def handle_chapter(chapter, volume, number, book, nav_css):
     else:
         chapter['title'] = chapter['content'][0]
         chapter['content'] = '</p><p>'.join(chapter['content'][1:])
-    file_name = f'chapter{number:02d}.xhtml'
     
-    c = epub.EpubHtml(title=chapter['title'], file_name=file_name, lang='zh', uid=f'chapter{number}')
-    c.content = f'<h2>{chapter['title']}</h2><p>{chapter['content']}</p>'
+    file_name = f'chapter{number:02d}.xhtml'
+    c = epub.EpubHtml(
+        title=chapter['title'],
+        file_name=file_name,
+        lang='zh',
+        uid=f'chapter{number}'
+    )
+    c.content = f'<h2>{chapter["title"]}</h2><p>{chapter["content"]}</p>'
     c.add_item(nav_css)
+    
     if volume['title']:
         volume['toc'].append(epub.Link(file_name, chapter['title'], f'chapter{number}'))
     else:
         book.toc.append(epub.Link(file_name, chapter['title'], f'chapter{number}'))
+    
     book.spine.append(c)
     book.add_item(c)
     
     return book
-    
+
 def handle_volume(volume, number, book, nav_css):
     file_name = f'volume_{number:02d}.xhtml'
-    
-    v = epub.EpubHtml(title=volume['title'], file_name=file_name, lang='zh', uid=f'volume{number}')
-    v.content = f'<h1>{volume['title']}</h1>'
+    v = epub.EpubHtml(
+        title=volume['title'],
+        file_name=file_name,
+        lang='zh',
+        uid=f'volume{number}'
+    )
+    v.content = f'<h1>{volume["title"]}</h1>'
     v.add_item(nav_css)
 
     book.toc.append((epub.Section(volume['title'], file_name), volume['toc']))
@@ -137,7 +151,7 @@ def main():
     # Output epub file
     epub_file = text_file.replace('.txt', '.epub')
     epub.write_epub(epub_file, book, {})
-    print(f"Books have been exported to: {epub_file}")
+    print(f"Book has been exported to: {epub_file}")
 
 if __name__ == '__main__':
     main()
