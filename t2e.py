@@ -3,8 +3,9 @@ import os
 import sys
 from ebooklib import epub
 
-CHAPTER_REGEX = r'(^第[零一二三四五六七八九十百千万0-9]+[章] )'
-VOLUME_REGEX = r'(^第[零一二三四五六七八九十百千万0-9]+[部卷] )'
+AUTHOR_REGEX = re.compile(r'作者：(.*?)$')
+CHAPTER_REGEX = re.compile(r'(^第?[零一二三四五六七八九十百千万0-9]+章)')
+VOLUME_REGEX = re.compile(r'(^第?[零一二三四五六七八九十百千万0-9]+[部卷] )')
 CSS_STYLE = """
 @charset "UTF-8";
 h1,
@@ -28,7 +29,7 @@ def t2e(text_file, image_file):
     
     # Create epub book
     book = epub.EpubBook()
-    book.set_language('zh')
+    book.set_language('zh-Hans-CN')
     book.set_cover(file_name=image_file, content=cover_image)
     book.set_title(os.path.basename(text_file).replace('.txt', ''))
 
@@ -61,13 +62,13 @@ def t2e(text_file, image_file):
         if not stripped_line:
             continue
 
-        if re.search(VOLUME_REGEX, stripped_line):
+        if VOLUME_REGEX.search(stripped_line):
             if chapter['content']:
                 book = handle_chapter(chapter, volume, i, book, nav_css)
                 chapter['content'] = []
             volume = {'title': stripped_line, 'toc': []}
             book = handle_volume(volume, i, book, nav_css)
-        elif re.search(CHAPTER_REGEX, stripped_line):
+        elif CHAPTER_REGEX.search(stripped_line):
             if chapter['content']:
                 book = handle_chapter(chapter, volume, i, book, nav_css)
             chapter = {'title': stripped_line, 'content': []}
@@ -84,6 +85,13 @@ def t2e(text_file, image_file):
     return book
 
 def handle_chapter(chapter, volume, number, book, nav_css):
+    if number < 50:
+        for line in chapter['content']:
+            author = AUTHOR_REGEX.search(line)
+            if author:
+                book.add_author(author.group(1))
+                break
+            
     if chapter['title']:
         chapter['content'] = '</p><p>'.join(chapter['content'][:])
     else:
@@ -94,7 +102,7 @@ def handle_chapter(chapter, volume, number, book, nav_css):
     c = epub.EpubHtml(
         title=chapter['title'],
         file_name=file_name,
-        lang='zh',
+        lang='zh-Hans-CN',
         uid=f'chapter{number}'
     )
     c.content = f'<h2>{chapter["title"]}</h2><p>{chapter["content"]}</p>'
@@ -115,7 +123,7 @@ def handle_volume(volume, number, book, nav_css):
     v = epub.EpubHtml(
         title=volume['title'],
         file_name=file_name,
-        lang='zh',
+        lang='zh-Hans-CN',
         uid=f'volume{number}'
     )
     v.content = f'<h1>{volume["title"]}</h1>'

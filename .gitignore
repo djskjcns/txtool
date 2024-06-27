@@ -1,5 +1,8 @@
 tmp/
 tests/
 venv/
+build/
+dist/
 
 .DS_Store
+*.spec

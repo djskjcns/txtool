@@ -9,7 +9,7 @@ fi
 files_moved=0
 
 # 定义需要移动的文件扩展名
-file_extensions=("*.txt" "*.jpeg" "*.jpg" "*.epub")
+file_extensions=("*.txt" "*.jpeg" "*.jpg" "*.epub" "*.png")
 
 # 遍历文件扩展名
 for ext in "${file_extensions[@]}"; do
